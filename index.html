@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI Face Restore & Upscale Pro V2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  
+  :root { 
+    --bg-color: #09090e;
+    --app-gradient: radial-gradient(circle at 50% 0%, #1a1a3a 0%, #09090e 60%);
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --acc: #8b5cf6; /* Silky Purple */
+    --acc-hover: #7c3aed; 
+    --acc-glow: rgba(139, 92, 246, 0.4);
+    --tx: #f8fafc;    
+    --mut: #94a3b8; 
+    --green: #34c759; /* iOS Green */
+  }
+  
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+  
+  html, body { height: 100%; margin: 0; background-color: var(--bg-color); background-image: var(--app-gradient); background-attachment: fixed; color: var(--tx); display: flex; flex-direction: column; }
+  
+  /* App Top Navigation Bar */
+  .navbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: rgba(9, 9, 14, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); position: sticky; top: 0; z-index: 100; }
+  .nav-brand { display: flex; flex-direction: column; }
+  .nav-brand h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, #e2e8f0, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .nav-brand p { font-size: 10px; color: var(--acc); margin-top: 2px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  /* User Dropdown (iOS Context Menu Style) */
+  .user-menu-wrapper { position: relative; }
+  .user-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--tx); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; backdrop-filter: blur(10px); }
+  .user-btn:hover { background: rgba(255,255,255,0.1); }
+  .user-btn:active { transform: scale(0.92); }
+  .user-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+  
+  .dropdown-menu { position: absolute; top: 52px; right: 0; background: rgba(20, 20, 30, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px; width: 240px; box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset; opacity: 0; visibility: hidden; transform: translateY(-10px) scale(0.95); transform-origin: top right; transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 100; }
+  .dropdown-menu.show { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+  .dropdown-header { font-size: 11px; text-transform: uppercase; color: var(--mut); margin-bottom: 12px; font-weight: 600; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;}
+  .dropdown-header svg { width: 14px; height: 14px; stroke: var(--green); }
+  
+  .clean-select { width: 100%; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: var(--tx); font-size: 13px; outline: none; cursor: pointer; font-weight: 500; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; transition: all 0.2s; }
+  .clean-select:focus { border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-glow); }
+
+  /* Main Layout - App Constraints */
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 24px 16px; overflow-y: auto; }
+  .container { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 16px; } /* 500px gives it a mobile app feel even on desktop */
+  
+  /* App Cards */
+  .panel { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 24px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05); }
+  
+  .field { margin-bottom: 16px; }
+  .field label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--mut); margin-bottom: 8px; font-weight: 600; letter-spacing: 0.02em; }
+  
+  /* Custom Native-like Select */
+  .app-select { width: 100%; padding: 14px 16px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 14px; color: var(--tx); outline: none; font-size: 14px; cursor: pointer; font-weight: 500; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; transition: all 0.2s; }
+  .app-select:focus { border-color: var(--acc); background: rgba(0,0,0,0.4); }
+
+  /* iOS Style Slider */
+  .slider-container { display: flex; align-items: center; gap: 14px; background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 14px; border: 1px solid var(--glass-border); }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.5); transition: transform 0.1s; }
+  input[type=range]::-webkit-slider-thumb:active { transform: scale(1.15); }
+  .slider-val { font-family: monospace; font-size: 13px; font-weight: 700; color: #fff; background: var(--acc); padding: 4px 10px; border-radius: 20px; min-width: 50px; text-align: center; box-shadow: 0 2px 10px var(--acc-glow); }
+
+  /* iOS Style Toggle Switch */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 14px 16px; border-radius: 14px; border: 1px solid var(--glass-border); }
+  .toggle-info { display: flex; flex-direction: column; gap: 2px; }
+  .toggle-title { font-size: 14px; font-weight: 600; color: var(--tx); display: flex; align-items: center; gap: 6px;}
+  .toggle-desc { font-size: 11px; color: var(--mut); line-height: 1.3; }
+  
+  .switch { position: relative; display: inline-block; width: 50px; height: 28px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 30px; }
+  .slider:before { position: absolute; content: ""; height: 24px; width: 24px; left: 2px; bottom: 2px; background-color: white; transition: .3s cubic-bezier(0.25, 0.8, 0.25, 1); border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+  input:checked + .slider { background-color: var(--green); }
+  input:checked + .slider:before { transform: translateX(22px); }
+
+  /* Dropzone - Soft Tap Area */
+  .dz { border: 1.5px dashed rgba(255,255,255,0.15); border-radius: 20px; padding: 36px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(0,0,0,0.15); margin-top: 8px; }
+  .dz:hover { border-color: var(--acc); background: rgba(139, 92, 246, 0.05); }
+  .dz:active { transform: scale(0.98); }
+  .dz-icon { width: 50px; height: 50px; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02)); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 1px solid var(--glass-border); font-size: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+  
+  /* Buttons */
+  .btn { width: 100%; padding: 16px; font-weight: 600; border-radius: 16px; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; transition: all 0.25s; font-size: 15px; letter-spacing: 0.02em; }
+  .btn-primary { background: linear-gradient(135deg, var(--acc), var(--acc-hover)); color: white; box-shadow: 0 8px 20px var(--acc-glow); border: 1px solid rgba(255,255,255,0.1); }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 25px var(--acc-glow); }
+  .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Results Section */
+  .compare-grid { display: grid; grid-template-columns: 1fr; gap: 16px; display: none; } /* Stacked in app layout */
+  
+  .img-box { background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 20px; overflow: hidden; position: relative; min-height: 250px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 4px 20px rgba(0,0,0,0.3); }
+  .img-box img { width: 100%; height: auto; display: block; object-fit: contain; }
+  .badge { position: absolute; top: 12px; left: 12px; background: rgba(15,23,42,0.85); color: white; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--glass-border); z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+  
+  /* Sleek Loader */
+  .loader-overlay { position: absolute; inset: 0; background: rgba(9, 9, 14, 0.7); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .spinner { width: 44px; height: 44px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--acc); border-radius: 50%; animation: spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg);}}
+
+  /* Footer */
+  footer { padding: 24px; text-align: center; font-size: 12px; color: var(--mut); border-top: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); }
+</style>
+</head>
+<body>
+
+  <!-- Hidden Secure Config Inputs -->
+  <input type="hidden" id="cloudName" value="">
+  <input type="hidden" id="uploadPreset" value="">
+
+  <!-- Top Navbar (App Header) -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <h1>Image Unblur and OPtimizes </h1>
+      <p>Silky Enhance & Scale</p>
+    </div>
+    
+    <div class="user-menu-wrapper">
+      <button id="btnConfigTop" class="user-btn" title="Account Settings">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
+      
+      <!-- Hidden Dropdown Menu -->
+      <div class="dropdown-menu" id="accountDropdown">
+        <div class="dropdown-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Active Workspace
+        </div>
+        <select id="accSelect" class="clean-select">
+          <option value="dbemw79xn|bg_remove_preset">Workspace 1 (Nikhil)</option>
+          <option value="ph4wjuvr|alkao5ox">Workspace 2 (Default)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      
+      <!-- Control Panel -->
+      <div class="panel">
+        
+        <!-- AI Mode -->
+        <div class="field">
+          <label>Processing Engine</label>
+          <select id="enhanceMode" class="app-select">
+            <option value="e_gen_restore" selected>✨ Pure Face Restore (Silky Smooth)</option>
+            <option value="e_enhance">🎨 Basic Color & Contrast Enhance</option>
+          </select>
+        </div>
+
+        <!-- Dynamic Scaling Slider -->
+        <div class="field">
+          <label><span>Resolution Multiplier</span> <span style="color:var(--acc); font-weight: 500;">Up to 4x</span></label>
+          <div class="slider-container">
+            <input type="range" id="scaleSlider" min="1" max="4" step="0.1" value="2.0">
+            <span class="slider-val" id="scaleVal">2.0x</span>
+          </div>
+        </div>
+
+        <!-- Optimize Toggle -->
+        <div class="field" style="margin-bottom: 0;">
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-title">
+                Smart Compression
+              </span>
+              <span class="toggle-desc">Auto-reduce file size up to 80% with zero quality loss.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chkOptimize" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Upload Dropzone -->
+        <div class="dz" id="dz">
+          <input type="file" id="fileInput" accept="image/jpeg, image/png, image/webp" style="display:none">
+          <div class="dz-icon">📸</div>
+          <h3 style="font-size: 16px; margin-bottom: 4px; color: #fff; font-weight: 600;">Tap to Upload Photo</h3>
+          <span style="font-size: 12px; color: var(--mut);">JPG, PNG, WEBP Supported</span>
+        </div>
+      </div>
+
+      <!-- Preview Section (Appears after upload) -->
+      <div class="compare-grid" id="resultGrid">
+        
+        <!-- Original -->
+        <div class="img-box">
+          <div class="badge">Original Photo</div>
+          <img id="imgOriginal" src="" alt="Original">
+        </div>
+
+        <!-- Enhanced -->
+        <div class="img-box">
+          <div class="badge" id="aiBadge" style="background: var(--acc); border-color: rgba(255,255,255,0.2);">AI Result</div>
+          <div class="loader-overlay" id="loader">
+            <div class="spinner"></div>
+            <span style="font-size: 13px; font-weight: 600; color: #fff; letter-spacing: 0.5px;">Applying AI Magic...</span>
+          </div>
+          <img id="imgEnhanced" src="" alt="Enhanced">
+        </div>
+        
+        <!-- Action Button -->
+        <button class="btn btn-primary" id="btnDownload">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Save to Device
+        </button>
+
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 Studio AI. Crafted with ❤️ for Mobile & Web.</p>
+  </footer>
+
+<script>
+  // --- Account Configuration Logic (Hidden securely in UI) ---
+  const cloudNameInput = document.getElementById('cloudName');
+  const uploadPresetInput = document.getElementById('uploadPreset');
+  const accSelect = document.getElementById('accSelect');
+  
+  function updateCredentials() {
+    const [c, p] = accSelect.value.split('|');
+    cloudNameInput.value = c;
+    uploadPresetInput.value = p;
+  }
+  accSelect.addEventListener('change', updateCredentials);
+  updateCredentials(); // Initialize
+
+  // User Dropdown Interaction
+  const btnConfigTop = document.getElementById('btnConfigTop');
+  const accountDropdown = document.getElementById('accountDropdown');
+  
+  btnConfigTop.addEventListener('click', (e) => {
+    accountDropdown.classList.toggle('show');
+    e.stopPropagation();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!accountDropdown.contains(e.target)) {
+      accountDropdown.classList.remove('show');
+    }
+  });
+
+  // --- Main Tool Logic ---
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const resultGrid = document.getElementById('resultGrid');
+  const imgOriginal = document.getElementById('imgOriginal');
+  const imgEnhanced = document.getElementById('imgEnhanced');
+  const loader = document.getElementById('loader');
+  const btnDownload = document.getElementById('btnDownload');
+  
+  const enhanceMode = document.getElementById('enhanceMode');
+  const scaleSlider = document.getElementById('scaleSlider');
+  const scaleVal = document.getElementById('scaleVal');
+  const chkOptimize = document.getElementById('chkOptimize');
+  const aiBadge = document.getElementById('aiBadge');
+
+  let currentPublicId = '';
+  let currentFormat = '';
+  let finalUrl = '';
+
+  // Update Slider Text dynamically
+  scaleSlider.addEventListener('input', () => {
+    scaleVal.textContent = scaleSlider.value + 'x';
+  });
+
+  // Auto-update image on control change (No re-upload)
+  [enhanceMode, scaleSlider, chkOptimize].forEach(control => {
+    control.addEventListener('change', updateEnhancedImage);
+  });
+
+  // Tap Dropzone to Upload
+  dz.onclick = () => fileInput.click();
+
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const cloudName = cloudNameInput.value;
+    const preset = uploadPresetInput.value;
+
+    imgOriginal.src = URL.createObjectURL(file);
+    imgEnhanced.src = ""; 
+    resultGrid.style.display = 'grid'; // App layout stacks them automatically
+    btnDownload.style.display = 'none';
+    loader.style.display = 'flex';
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', preset);
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST', body: formData
+      });
+      
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+
+      currentPublicId = data.public_id;
+      currentFormat = data.format;
+      
+      updateEnhancedImage();
+
+    } catch (error) {
+      alert("Upload Error: " + error.message);
+      loader.style.display = 'none';
+    }
+  });
+
+  function updateEnhancedImage() {
+    if (!currentPublicId) return;
+
+    const cloudName = cloudNameInput.value;
+    let transformations = [];
+
+    // 1. Processing Engine
+    transformations.push(enhanceMode.value);
+
+    // 2. Dynamic Scaling
+    const scale = parseFloat(scaleSlider.value);
+    if (scale !== 1) {
+      transformations.push(`c_scale,w_${scale.toFixed(1)}`);
+    }
+
+    // 3. Smart Compression
+    if (chkOptimize.checked) {
+      transformations.push('q_auto:good,f_auto'); 
+    } else {
+      transformations.push('q_100'); 
+    }
+
+    // Update Label
+    aiBadge.innerHTML = `AI Output (${scale}x${chkOptimize.checked ? ' Optimized' : ''})`;
+
+    // Generate Cloudinary URL
+    finalUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformations.join('/')}/${currentPublicId}.${currentFormat}`;
+
+    loader.style.display = 'flex';
+    btnDownload.style.display = 'none';
+    
+    const tempImage = new Image();
+    tempImage.src = finalUrl;
+    
+    tempImage.onload = () => {
+      imgEnhanced.src = finalUrl;
+      loader.style.display = 'none';
+      btnDownload.style.display = 'flex';
+    };
+
+    tempImage.onerror = () => {
+      loader.innerHTML = '<span style="color:#ef4444; font-size:12px; padding: 20px; text-align:center;">Processing Failed.<br>Please try slightly adjusting the slider.</span>';
+    };
+  }
+
+  // Handle Image Download
+  btnDownload.onclick = async () => {
+    try {
+      btnDownload.disabled = true;
+      btnDownload.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; border-width: 2px; margin-bottom: 0;"></div> Saving...';
+      
+      const response = await fetch(finalUrl);
+      const blob = await response.blob();
+      
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const extension = chkOptimize.checked ? 'jpg' : currentFormat;
+      a.download = `FaceStudio_AI_${Date.now()}.${extension}`;
+      
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+
+      btnDownload.disabled = false;
+      btnDownload.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Save to Device
+      `;
+    } catch (err) {
+      alert('Download failed! Check your internet connection.');
+      btnDownload.disabled = false;
+    }
+  };
+</script>
+</body>
+</html>
