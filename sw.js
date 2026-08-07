@@ -1,4 +1,4 @@
-const CACHE_NAME = 'image-ai-cache-v1';
+const CACHE_NAME = 'ai-enhancer-v1';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -6,7 +6,7 @@ const urlsToCache = [
   '/icon.png'
 ];
 
-// Install the service worker and cache static assets
+// Install a service worker
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -16,18 +16,21 @@ self.addEventListener('install', event => {
   );
 });
 
-// Serve cached content when offline
+// Cache and return requests
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
+        // Return response as Cache is hit 
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
       })
   );
 });
 
-// Clean up old caches on activation
+// Update a service worker
 self.addEventListener('activate', event => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
